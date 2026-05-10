@@ -36,6 +36,18 @@ cd research/notebooks
 jupyter lab
 ```
 
+### Task tự động nghiên cứu định lượng
+
+Chạy pipeline tự động để thử nhiều cấu hình chiến lược và chọn chỉ báo tốt nhất:
+
+```python
+from research.tasks import run_auto_quant_research
+
+result = run_auto_quant_research("du_lieu_vn30f.csv")
+print(result["leaderboard"].head(5))
+print(result["best_strategy"], result["best_params"])
+```
+
 ### Phạm vi của Hermes
 
 | Trong phạm vi ✅ | Ngoài phạm vi 🚫 |
