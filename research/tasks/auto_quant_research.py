@@ -20,6 +20,8 @@ from research.features import add_returns, add_volatility, add_momentum
 from research.regime import VolatilityRegime
 from research.signals import TimeSeriesMomentum, ZScoreMeanReversion
 
+_HIGH_VOL_REGIME_LABEL = 2
+
 
 @dataclass
 class AutoResearchConfig:
@@ -58,8 +60,8 @@ def _strategy_score(metrics: dict[str, Any], config: AutoResearchConfig) -> floa
 
 def _build_regime_mask(df: pd.DataFrame) -> pd.Series:
     regime = VolatilityRegime(vol_window=20).fit_predict(df, ret_col="ret_1")
-    # Trade only outside high-vol regime (label 2)
-    return (regime != 2).astype(float)
+    # Trade only outside high-vol regime.
+    return (regime != _HIGH_VOL_REGIME_LABEL).astype(float)
 
 
 def _evaluate_candidate(
@@ -173,7 +175,12 @@ def run_auto_quant_research(
             candidate_id += 1
 
     if not evaluations:
-        raise ValueError("[auto_quant_research] No strategy candidate was generated.")
+        raise ValueError(
+            "[auto_quant_research] No strategy candidate was generated. "
+            f"momentum_lookbacks={cfg.momentum_lookbacks}, "
+            f"meanrev_windows={cfg.meanrev_windows}, "
+            f"meanrev_entry_z={cfg.meanrev_entry_z}."
+        )
 
     leaderboard = (
         pd.DataFrame(evaluations)
