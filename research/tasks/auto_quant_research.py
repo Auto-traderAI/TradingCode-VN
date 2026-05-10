@@ -50,6 +50,7 @@ def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
 def _strategy_score(metrics: dict[str, Any], config: AutoResearchConfig) -> float:
     sharpe = float(metrics["sharpe"])
     calmar = float(metrics["calmar"])
+    # max_drawdown from backtest.metrics is negative (e.g. -0.15).
     max_drawdown = abs(float(metrics["max_drawdown"]))
     return (
         config.weight_sharpe * sharpe
@@ -128,7 +129,6 @@ def run_auto_quant_research(
     )
 
     evaluations: list[dict[str, Any]] = []
-    evaluations_by_id: dict[int, dict[str, Any]] = {}
     candidate_id = 0
 
     for lookback in cfg.momentum_lookbacks:
@@ -146,7 +146,6 @@ def run_auto_quant_research(
             candidate_id=candidate_id,
         )
         evaluations.append(row)
-        evaluations_by_id[candidate_id] = row
         candidate_id += 1
 
     for window in cfg.meanrev_windows:
@@ -171,7 +170,6 @@ def run_auto_quant_research(
                 candidate_id=candidate_id,
             )
             evaluations.append(row)
-            evaluations_by_id[candidate_id] = row
             candidate_id += 1
 
     if not evaluations:
@@ -189,8 +187,10 @@ def run_auto_quant_research(
         .sort_values(["score", "candidate_id"], ascending=[False, True])
         .reset_index(drop=True)
     )
+    if leaderboard.empty:
+        raise RuntimeError("[auto_quant_research] Leaderboard is unexpectedly empty.")
     best_id = int(leaderboard.loc[0, "candidate_id"])
-    best = evaluations_by_id[best_id]
+    best = next(row for row in evaluations if row["candidate_id"] == best_id)
     best_signal_frame = df.copy()
     best_signal_frame["signal"] = best["signal"]
 
