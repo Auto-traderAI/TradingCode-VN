@@ -1,0 +1,28 @@
+# Research environment for TradingCode-VN / Hermes workspace
+# Python >= 3.10 recommended
+
+# Core data science
+numpy>=1.26
+pandas>=2.2
+scipy>=1.13
+statsmodels>=0.14
+
+# Machine learning / regime detection
+scikit-learn>=1.4
+hmmlearn>=0.3          # Hidden Markov Model for regime detection
+
+# Backtesting
+vectorbt>=0.26         # vectorised backtest framework
+
+# Visualisation
+matplotlib>=3.9
+seaborn>=0.13
+plotly>=5.22
+
+# Jupyter
+jupyterlab>=4.2
+ipywidgets>=8.1
+
+# Utilities
+python-dotenv>=1.0
+tqdm>=4.66
