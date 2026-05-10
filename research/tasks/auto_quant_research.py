@@ -61,6 +61,7 @@ def _evaluate_candidate(
     name: str,
     params: dict[str, Any],
     config: AutoResearchConfig,
+    candidate_id: int,
 ) -> dict[str, Any]:
     bt_df = df.copy()
     bt_df["signal"] = signal
@@ -71,6 +72,7 @@ def _evaluate_candidate(
     )
     score = _strategy_score(result)
     return {
+        "candidate_id": candidate_id,
         "strategy": name,
         "params": params,
         "score": score,
@@ -113,6 +115,7 @@ def run_auto_quant_research(
     regime_mask = _build_regime_mask(df) if cfg.regime_filter else pd.Series(1.0, index=df.index)
 
     evaluations: list[dict[str, Any]] = []
+    candidate_id = 0
 
     for lookback in cfg.momentum_lookbacks:
         signal_df = TimeSeriesMomentum(
@@ -127,8 +130,10 @@ def run_auto_quant_research(
                 name="ts_momentum",
                 params={"lookback": lookback, "regime_filter": cfg.regime_filter},
                 config=cfg,
+                candidate_id=candidate_id,
             )
         )
+        candidate_id += 1
 
     for window in cfg.meanrev_windows:
         for entry_z in cfg.meanrev_entry_z:
@@ -150,19 +155,22 @@ def run_auto_quant_research(
                         "regime_filter": cfg.regime_filter,
                     },
                     config=cfg,
+                    candidate_id=candidate_id,
                 )
             )
+            candidate_id += 1
 
     if not evaluations:
         raise ValueError("[auto_quant_research] No strategy candidate was generated.")
 
-    best = max(evaluations, key=lambda row: (row["score"], row["sharpe"], row["calmar"]))
     leaderboard = (
         pd.DataFrame(evaluations)
         .drop(columns=["signal"])
-        .sort_values(["score", "sharpe", "calmar"], ascending=False)
+        .sort_values(["score", "candidate_id"], ascending=[False, True])
         .reset_index(drop=True)
     )
+    best_id = int(leaderboard.loc[0, "candidate_id"])
+    best = next(row for row in evaluations if row["candidate_id"] == best_id)
     best_signal_frame = df.copy()
     best_signal_frame["signal"] = best["signal"]
 
