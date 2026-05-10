@@ -32,6 +32,9 @@ class AutoResearchConfig:
     cost_per_trade: float = 0.0002
     periods_per_year: int = 252
     regime_filter: bool = True
+    weight_sharpe: float = 1.0
+    weight_calmar: float = 0.5
+    weight_drawdown: float = 1.0
 
 
 def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -42,11 +45,15 @@ def _prepare_features(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _strategy_score(metrics: dict[str, Any]) -> float:
+def _strategy_score(metrics: dict[str, Any], config: AutoResearchConfig) -> float:
     sharpe = float(metrics["sharpe"])
     calmar = float(metrics["calmar"])
     max_drawdown = abs(float(metrics["max_drawdown"]))
-    return sharpe + 0.5 * calmar - max_drawdown
+    return (
+        config.weight_sharpe * sharpe
+        + config.weight_calmar * calmar
+        - config.weight_drawdown * max_drawdown
+    )
 
 
 def _build_regime_mask(df: pd.DataFrame) -> pd.Series:
@@ -70,7 +77,7 @@ def _evaluate_candidate(
         cost_per_trade=config.cost_per_trade,
         periods_per_year=config.periods_per_year,
     )
-    score = _strategy_score(result)
+    score = _strategy_score(result, config)
     return {
         "candidate_id": candidate_id,
         "strategy": name,
@@ -115,6 +122,7 @@ def run_auto_quant_research(
     regime_mask = _build_regime_mask(df) if cfg.regime_filter else pd.Series(1.0, index=df.index)
 
     evaluations: list[dict[str, Any]] = []
+    evaluations_by_id: dict[int, dict[str, Any]] = {}
     candidate_id = 0
 
     for lookback in cfg.momentum_lookbacks:
@@ -123,16 +131,16 @@ def run_auto_quant_research(
             periods_per_year=cfg.periods_per_year,
         ).generate(df)
         signal = signal_df["signal"].fillna(0) * regime_mask
-        evaluations.append(
-            _evaluate_candidate(
-                df=df,
-                signal=signal,
-                name="ts_momentum",
-                params={"lookback": lookback, "regime_filter": cfg.regime_filter},
-                config=cfg,
-                candidate_id=candidate_id,
-            )
+        row = _evaluate_candidate(
+            df=df,
+            signal=signal,
+            name="ts_momentum",
+            params={"lookback": lookback, "regime_filter": cfg.regime_filter},
+            config=cfg,
+            candidate_id=candidate_id,
         )
+        evaluations.append(row)
+        evaluations_by_id[candidate_id] = row
         candidate_id += 1
 
     for window in cfg.meanrev_windows:
@@ -143,21 +151,21 @@ def run_auto_quant_research(
                 exit_z=cfg.meanrev_exit_z,
             ).generate(df)
             signal = signal_df["signal"].fillna(0) * regime_mask
-            evaluations.append(
-                _evaluate_candidate(
-                    df=df,
-                    signal=signal,
-                    name="zscore_mean_reversion",
-                    params={
-                        "window": window,
-                        "entry_z": entry_z,
-                        "exit_z": cfg.meanrev_exit_z,
-                        "regime_filter": cfg.regime_filter,
-                    },
-                    config=cfg,
-                    candidate_id=candidate_id,
-                )
+            row = _evaluate_candidate(
+                df=df,
+                signal=signal,
+                name="zscore_mean_reversion",
+                params={
+                    "window": window,
+                    "entry_z": entry_z,
+                    "exit_z": cfg.meanrev_exit_z,
+                    "regime_filter": cfg.regime_filter,
+                },
+                config=cfg,
+                candidate_id=candidate_id,
             )
+            evaluations.append(row)
+            evaluations_by_id[candidate_id] = row
             candidate_id += 1
 
     if not evaluations:
@@ -170,7 +178,7 @@ def run_auto_quant_research(
         .reset_index(drop=True)
     )
     best_id = int(leaderboard.loc[0, "candidate_id"])
-    best = next(row for row in evaluations if row["candidate_id"] == best_id)
+    best = evaluations_by_id[best_id]
     best_signal_frame = df.copy()
     best_signal_frame["signal"] = best["signal"]
 
