@@ -179,7 +179,8 @@ def run_auto_quant_research(
             "[auto_quant_research] No strategy candidate was generated. "
             f"momentum_lookbacks={cfg.momentum_lookbacks}, "
             f"meanrev_windows={cfg.meanrev_windows}, "
-            f"meanrev_entry_z={cfg.meanrev_entry_z}."
+            f"meanrev_entry_z={cfg.meanrev_entry_z}. "
+            "Ensure at least one strategy configuration list is non-empty."
         )
 
     leaderboard = (
