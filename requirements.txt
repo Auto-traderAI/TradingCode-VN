@@ -11,8 +11,8 @@ statsmodels>=0.14
 scikit-learn>=1.4
 hmmlearn>=0.3          # Hidden Markov Model for regime detection
 
-# Backtesting
-vectorbt>=0.26         # vectorised backtest framework
+# Backtesting — custom vectorised engine in research/backtest/engine.py
+# vectorbt>=0.26  # optional: install for advanced portfolio-level analysis
 
 # Visualisation
 matplotlib>=3.9
