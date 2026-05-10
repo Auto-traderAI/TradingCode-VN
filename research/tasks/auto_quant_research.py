@@ -119,7 +119,11 @@ def run_auto_quant_research(
     df = load_ohlcv(source)
     df = _prepare_features(df)
 
-    regime_mask = _build_regime_mask(df) if cfg.regime_filter else pd.Series(1.0, index=df.index)
+    regime_mask = (
+        _build_regime_mask(df)
+        if cfg.regime_filter
+        else pd.Series(1.0, index=df.index, dtype=float)
+    )
 
     evaluations: list[dict[str, Any]] = []
     evaluations_by_id: dict[int, dict[str, Any]] = {}
